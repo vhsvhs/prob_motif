@@ -56,6 +56,7 @@ def summarize_msc(msc, mlib, nmuts, nsamples):
     return [m_mean_c, m_sem_c, mean_c, sem_c]
 
 def msc_to_cdf(msc, mlib, nmuts, nsamples):
+    count_zero = 0
     pvals = [] # key = motif, value = Prob from samples that count @ nmut > 0
     for i in range(0, nmuts):
         for m in mlib:
@@ -99,49 +100,101 @@ def plotcdf(pvals, nmuts):
     plt.legend()
     plt.show()
 
-def find_occurances(motif, urses):
-    count = 0
-    locs = []
-    ret_counts = []
-    mlen = motif.__len__()
-    for urs in urses:
-        for i in range(0, urs.__len__()):
-            if i + mlen < urs.__len__():
-                if urs[i:i+mlen].__contains__(motif):
-                    if locs.__len__() == 0:
-                        locs.append( i )
-                        count += 1
-                    elif locs[ locs.__len__()-1 ] != i:
-                        locs.append(i)
-                        #print "locs", locs[ locs.__len__()-2 ], i
-                        count += 1
-                    #else:
-                        #print "already seen it."
-        ret_counts.append( count )
-    return ret_counts
-    
+#def find_occurances(motif, urses):
+#    count = 0
+#    locs = []
+#    ret_counts = []
+#    mlen = motif.__len__()
+#    for urs in urses:
+#        for i in range(0, urs.__len__()):
+#            if i + mlen < urs.__len__():
+#                if urs[i:i+mlen].__contains__(motif):
+#                    if locs.__len__() == 0:
+#                        locs.append( i )
+#                        count += 1
+#                    elif locs[ locs.__len__()-1 ] != i:
+#                        locs.append(i)
+#                        #print "locs", locs[ locs.__len__()-2 ], i
+#                        count += 1
+#                    #else:
+#                        #print "already seen it."
+#        ret_counts.append( count )
+#    return ret_counts
+#    
 
-"""cumulative probability of a motif appearing,
-given the number of mutations."""
-def cf(mlib, urslen, nmutations, nsamples):
+#"""cumulative probability of a motif appearing,
+#given the number of mutations."""
+#def cf(mlib, urslen, nmutations, nsamples, stride):
+#
+#    msc = {} #msc[motif] = [] array of arrays
+#    for m in mlib:
+#        msc[m] = []
+#    
+#    for n in range(0, nsamples):
+#        print "sample", n
+#        for m in mlib:
+#            msc[m].append( [] )
+#            
+#        """For each sample, make a random URS"""
+#        urs = make_random_urs(urslen)
+#        urses = []
+#        for i in range(0, nmutations):
+#            urs = mutate_urs(urs)
+#            if stride%i == 0:
+#                urses.append(urs)
+#                for m in mlib:
+#                    msc[m].append( = find_occurances( m, urses ) )
+#    return msc
 
-    msc = {} #msc[motif] = [] array of arrays
+def cf2(mlib, urslen, nmutations, nsamples):
+    msc = {} # key = motif, value = [] one for each sample, value = [] of cumm. count
+    ms_locs = {} # key = motif, value = array of last-seen locations
+
     for m in mlib:
         msc[m] = []
+        for s in range(0, nsamples):
+            msc[m].append([])
+            for n in range(0, nmuts):
+                msc[m][s].append(0.0)
     
-    for n in range(0, nsamples):
-        print "sample", n
+    for s in range(0, nsamples):
+        print ". sample", s, "of", nsamples-1
+        ms_locs = {}
         for m in mlib:
-            msc[m].append( [] )
-            
-        """For each sample, make a random URS"""
+            ms_locs[m] = []
+
         urs = make_random_urs(urslen)
-        urses = []
-        for i in range(0, nmutations):
+        
+        for n in range(0, nmuts):
+            #print ". mutant", n
+            #print ". new urs", urs
+
+            """First, update our info. about previously found copies of the motif."""
+            for m in mlib:
+                #print "ms_locs", m, ms_locs[m]
+                for l in ms_locs[m]:
+                    if False == urs[l:l+m.__len__()].__contains__(m):
+                        ms_locs[m].remove( l )
+                    
+                if n > 0:
+                    msc[m][s][n] = msc[m][s][n-1]
+            
+            """ Next, count unique occurances of motif in urs """
+            for i in range(0, urs.__len__()):
+                for m in mlib:
+                    """If m fits on the sequence..."""
+                    if i + m.__len__() < urs.__len__():
+                        """Does motif exist in seq?"""
+                        if urs[i:i+m.__len__()].__contains__(m):
+                            #print "maybe match", m, urs[i:i+m.__len__()]
+                            """But we haven't seen this motif in previous mutants?"""
+                            if False == ms_locs[m].__contains__(i):
+                                    ms_locs[m].append(i)
+                                    msc[m][s][n] += 1
+                                    #print "found match", i, m, urs[i:i+m.__len__()]
+                                    
+                                    
             urs = mutate_urs(urs)
-            urses.append(urs)
-        for m in mlib:
-            msc[m][n] = find_occurances( m, urses )
     return msc
 
 """"""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -152,54 +205,28 @@ ap = ArgParser(sys.argv)
 urslen = int( ap.getArg("--urslen") )
 nmuts = int( ap.getArg("--nmutations") )
 nsamples = int( ap.getArg("--nsamples") )
-pwm_dir = ap.getOptionalArg("--pwmdir")
-pwmpath = ap.getOptionalArg("--pwmpath")
-if pwm_dir == False and pwmpath == False:
-    print "Ooops, you forgot to specify --pwmdir, or --pwmpath.  Pick one."
-cutoffpath = ap.getOptionalArg("--cutoffpath")
-cutoffval = float(ap.getOptionalArg("--cutoff"))
-if cutoffpath == False and cutoffval == False:
-    print "Ooops, you forgot to specify --cutoffpath, or --cutoff.  Pick one."
+mlibpath = ap.getArg("--mlibpath")
 
 pwms = {}
 pwm_paths = {}
 
-if pwm_dir:
-    for f in os.listdir(pwm_dir):
-        tokens = f.split(".")
-        pwmid = tokens[1]
-        pwm_paths[pwmid] = pwm_dir + "/" + f
-        print "Reading PWM from", pwm_paths[pwmid]
-        pwms[pwmid] = read_pwm_from_file(pwm_paths[pwmid]  )
-else:
-    tokens = pwmpath.split(".")
-    pwmid = tokens[1]
-    pwm_paths[pwmid] = pwmpath
-    pwms[pwmid] = read_pwm_from_file(pwm_paths[pwmid]  )
+mlib = []
+fin = open(mlibpath, "r")
+for l in fin.readlines():
+    if l.__len__() > 2:
+        mlib.append(l.strip())
+fin.close()
+  
+print "\n. OK, I'm using this motif library:"
+print mlib
 
-mcutoffs = {}
-if cutoffpath:
-    mcutoffs = read_cutoffs_from_scertf(cutoffpath)
-    for m in pwm_paths:
-        print "GENE: ", m, "cutoff = ", mcutoffs[m]
-else:
-    for m in pwm_paths:
-        mcutoffs[m] = cutoffval
-        print "GENE: ", m, "cutoff = ", mcutoffs[m]
-
-mlibs = {}
-for m in pwms:
-    print "Calculting mlibs for", m
-    print pwms[m]
-    mlibs[m] = mlib_from_pwm(pwms[m], mcutoffs[m])
-    print "Calculating msc for", m
-    msc = cf(mlibs[m], urslen, nmuts, nsamples)
-    plot2(msc, mlibs[m], nmuts, nsamples)
-    print "Calculating PDF for", m
-    
-    pvals = msc_to_cdf(msc, mlibs[m], nmuts, nsamples)
-    #print pvals
-    #print "mlibs for ", m, "=", mlibs[m]
-    plotcdf(pvals, nmuts)
+print "\n. Calculating MSC. . ."
+msc = cf2(mlib, urslen, nmuts, nsamples)
+#plot2(msc, mlibs[m], nmuts, nsamples)
+print "\n. Calculating PDF. . ."
+pvals = msc_to_cdf(msc, mlib, nmuts, nsamples)
+#print pvals
+#print "mlibs for ", m, "=", mlibs[m]
+plotcdf(pvals, nmuts)
 
 
