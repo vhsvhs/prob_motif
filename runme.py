@@ -100,53 +100,8 @@ def plotcdf(pvals, nmuts):
     plt.legend()
     plt.show()
 
-#def find_occurances(motif, urses):
-#    count = 0
-#    locs = []
-#    ret_counts = []
-#    mlen = motif.__len__()
-#    for urs in urses:
-#        for i in range(0, urs.__len__()):
-#            if i + mlen < urs.__len__():
-#                if urs[i:i+mlen].__contains__(motif):
-#                    if locs.__len__() == 0:
-#                        locs.append( i )
-#                        count += 1
-#                    elif locs[ locs.__len__()-1 ] != i:
-#                        locs.append(i)
-#                        #print "locs", locs[ locs.__len__()-2 ], i
-#                        count += 1
-#                    #else:
-#                        #print "already seen it."
-#        ret_counts.append( count )
-#    return ret_counts
-#    
 
-#"""cumulative probability of a motif appearing,
-#given the number of mutations."""
-#def cf(mlib, urslen, nmutations, nsamples, stride):
-#
-#    msc = {} #msc[motif] = [] array of arrays
-#    for m in mlib:
-#        msc[m] = []
-#    
-#    for n in range(0, nsamples):
-#        print "sample", n
-#        for m in mlib:
-#            msc[m].append( [] )
-#            
-#        """For each sample, make a random URS"""
-#        urs = make_random_urs(urslen)
-#        urses = []
-#        for i in range(0, nmutations):
-#            urs = mutate_urs(urs)
-#            if stride%i == 0:
-#                urses.append(urs)
-#                for m in mlib:
-#                    msc[m].append( = find_occurances( m, urses ) )
-#    return msc
-
-def cf2(mlib, urslen, nmutations, nsamples):
+def cf2(mlib, urslen, nmuts, nsamples, nmut_stride):
     msc = {} # key = motif, value = [] one for each sample, value = [] of cumm. count
     ms_locs = {} # key = motif, value = array of last-seen locations
 
@@ -168,6 +123,10 @@ def cf2(mlib, urslen, nmutations, nsamples):
         for n in range(0, nmuts):
             #print ". mutant", n
             #print ". new urs", urs
+            urs = mutate_urs(urs)
+            
+            if n%stride != 0:
+                continue
 
             """First, update our info. about previously found copies of the motif."""
             for m in mlib:
@@ -192,9 +151,6 @@ def cf2(mlib, urslen, nmutations, nsamples):
                                     ms_locs[m].append(i)
                                     msc[m][s][n] += 1
                                     #print "found match", i, m, urs[i:i+m.__len__()]
-                                    
-                                    
-            urs = mutate_urs(urs)
     return msc
 
 """"""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -205,6 +161,7 @@ ap = ArgParser(sys.argv)
 urslen = int( ap.getArg("--urslen") )
 nmuts = int( ap.getArg("--nmutations") )
 nsamples = int( ap.getArg("--nsamples") )
+stride = int( ap.getArg("--stride") )
 mlibpath = ap.getArg("--mlibpath")
 
 pwms = {}
@@ -221,7 +178,7 @@ print "\n. OK, I'm using this motif library:"
 print mlib
 
 print "\n. Calculating MSC. . ."
-msc = cf2(mlib, urslen, nmuts, nsamples)
+msc = cf2(mlib, urslen, nmuts, nsamples, stride)
 #plot2(msc, mlibs[m], nmuts, nsamples)
 print "\n. Calculating PDF. . ."
 pvals = msc_to_cdf(msc, mlib, nmuts, nsamples)
