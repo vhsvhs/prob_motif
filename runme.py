@@ -57,7 +57,7 @@ def summarize_msc(msc, mlib, nmuts, nsamples):
     
     return [m_mean_c, m_sem_c, mean_c, sem_c]
 
-def sc_to_cdf(sc, nmuts, nsamples):
+def sc_to_cdf(sc, nmuts, nsamples, mliblen):
     count_zero = 0
     pvals = [] # key = motif, value = Prob from samples that count @ nmut > 0
     for i in range(0, nmuts):
@@ -65,8 +65,9 @@ def sc_to_cdf(sc, nmuts, nsamples):
         for n in range(0, nsamples):
             if sc[n][i] == 0:
                 count_zero += 1
-        this_pval = 1.0 - (count_zero * 1.0 / nsamples )
+        this_pval = 1.0 - (count_zero * 1.0 / (nsamples) )
         pvals.append(this_pval)
+        print "mut", i, count_zero
     return pvals
 
 
@@ -176,7 +177,7 @@ def cf2(mlib, urslen, nmuts, nsamples, nmut_stride):
                                     #print "found match", i, m, urs[i:i+m.__len__()]
     
         sample_elapsed_time = time.time() - sample_start_time
-        print ". sample", s, "of", nsamples-1, "from node", rank, "took %.3f"%sample_elapsed_time, "seconds."
+        print "\t-> sample", s, "of", nsamples-1, "from node", rank, "took %.3f"%sample_elapsed_time, "seconds."
         
         
     """Return our copy of sc to the master...."""
@@ -193,6 +194,23 @@ def cf2(mlib, urslen, nmuts, nsamples, nmut_stride):
                 if is_my_item(s, jobs, slave):
                     sc[s] = slave_sc[s]
     return sc
+
+def read_mlib(mlibpath):
+    mlib = []
+    fin = open(mlibpath, "r")
+    for l in fin.readlines():
+        if l.__len__() > 2:
+            mlib.append(l.strip())
+    fin.close()
+    return mlib
+
+def post_cf2(sc, nmuts, nsamples, mliblen):
+    print "\n. Calculating PDF. . ."
+    pvals = sc_to_cdf(sc, nmuts, nsamples, mliblen)
+
+    if makeplots == True:
+        print "plotting cdf"
+        plotcdf(pvals, nmuts)
 
 """"""""""""""""""""""""""""""""""""""""""""""""""""""
 """ Main... """
@@ -211,39 +229,34 @@ if stride == False:
 else:
     stride = int(stride)
 mlibpath = ap.getArg("--mlibpath")
+mlib = read_mlib(mlibpath)
 runid = ap.getArg("--runid")
 makeplots = ap.getOptionalArg("--makeplots")
 if makeplots == "True":
     makeplots = True
 
-mlib = []
-fin = open(mlibpath, "r")
-for l in fin.readlines():
-    if l.__len__() > 2:
-        mlib.append(l.strip())
-fin.close()
-
-if rank == 0: 
-    print "\n. OK, I'm using this motif library:"
-    print mlib
+loadsaved = ap.getOptionalArg("--loadsaved")
+if loadsaved and rank == 0:
+    print "\n. Loading saved data from", loadsaved
+    fin = open(loadsaved, "r")
+    sc = pickle.load(fin)
+    fin.close()
+elif loadsaved == False:    
+    if rank == 0: 
+        print "\n. OK, I'm using this motif library:"
+        print mlib
+        print "\n. Calculating SC. . ."
+        
+    sc = cf2(mlib, urslen, nmuts, nsamples, stride)
+    comm.Barrier()
     
-if rank == 0:
-    print "\n. Calculating MSC. . ."
-sc = cf2(mlib, urslen, nmuts, nsamples, stride)
-
-comm.Barrier()
-
-if rank == 0:
-    sc_p = pickle.dumps(sc)
-    fout = open(runid + ".sc.pickle", "w")
-    fout.write(sc_p)
-    fout.close()
-    print "\n. Calculating PDF. . ."
-    pvals = sc_to_cdf(sc, nmuts, nsamples)
-    #print pvals
-    #print "mlibs for ", m, "=", mlibs[m]
-    if makeplots == True:
-        print "plotting cdf"
-        plotcdf(pvals, nmuts)
+    if rank == 0:
+        """Save sc."""
+        sc_p = pickle.dumps(sc)
+        fout = open(runid + ".sc.pickle", "w")
+        fout.write(sc_p)
+        fout.close()
+        
+post_cf2(sc, nmuts, nsamples, mlib.__len__())
 
 
