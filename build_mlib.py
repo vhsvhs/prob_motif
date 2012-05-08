@@ -123,8 +123,11 @@ elif pwmdir != False:
         pwm_files.append( f )
 pwms = {} # key = filename, value = PWM hash (see the methods in pwm_tools.py)
 for f in pwm_files:
-    print "\n. I'm analyzing the file", f, ". . ."
+    print "\n. I'm analyzing the file:", f, ". . ."
     if False == is_this_pwm(pwmdir + "" + f):
+        q = pwmdir + "" + f
+        print "\n. Hmmm, I don't think this file contains a PWM:",  q
+        print "---> I'm skipping this file."
         continue
     pwm = read_pwm_from_file(pwmdir + "" + f)
     
