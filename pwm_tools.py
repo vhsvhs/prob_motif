@@ -48,7 +48,7 @@ def pwm_to_tree_recur(pwm, cutoff, site, parent_cost, parent_string):
 
             if cost > cutoff:
                 mlibs.append(motif)
-                print "terminal", motif, cost # this explodes runtime!!
+                print motif, cost # this explodes runtime!!
             ret[state] = (cost, None)
         return (ret, mlibs)
     else:
@@ -59,7 +59,7 @@ def pwm_to_tree_recur(pwm, cutoff, site, parent_cost, parent_string):
             my_string = parent_string + state
             if my_cost > cutoff:
                 mlibs.append(my_string)
-                print "short", my_string, my_cost # this explodes runtime!!
+                print my_string, my_cost # this explodes runtime!!
             recur_results = pwm_to_tree_recur(pwm, cutoff, site + 1, my_cost,my_string)
             child_pointer = recur_results[0]
             child_mlibs = recur_results[1]
