@@ -1,11 +1,46 @@
-"""
-prob_motif
+#################################################
+# 
+# mlib_to_cdf.py
+#
+# Victor Hanson-Smith
+# victorhansonsmith@gmail.com
+# 2012
+#
+# What is the probability of a cis-regulatory motif occurring by chance?
+#
+# USAGE:
+# $> python mlib_to_cdf.py --urslen L --nmutations M --nsamples N --mlibpath <motif library path> --runid ID
+#
+#    . . . where L is the length (in nucleotides) of the upstream regulatory sequence.
+#    . . . where M is the number of mutations that will be introduced -- one by one -- to the URS.
+#    . . . where N is the number of replicates that will be sampled.
+#    . . . where <motif library path> is a text file containing a list of motifs, one motif per line.
+#            See the script build_mlib.py to generate a motif library from a position weight matrix.
+#    . . . where ID is the unique run ID for this execution.
+#
+# OPTIONAL ARGUMENTS:
+# --stride S
+#    . . . where S is the stride size in mutations.  The occurance of motifs will be counted
+#            only every S mutations.  This is useful for reducing computation time when the number
+#            of mutations is large (for example, 10^6 or larger), but if S is too large,
+#            then there will be a significant reduction in the accuracy of the cummulative
+#            distribution.
+# --loadsaved <path>
+#    . . . where <path> points to a Python pickled file written by this script.  If --loadsaved
+#            is enabled, then this script will skip re-computing the cummulative distribution
+#            and will directly plot the data in the pickled file.
+# --makeplots True/False
+#    . . . by default, this is set to False.  The cummulative distribution will be plotted using
+#            matplotlib if this is set to True.
+#
+# IMPORTANT NOTES:
+# 1. This script requires non-standard Python libraries: Mpi4py, and matplotlib
+#    You can circumvent the need for matplotlib by specifying "--makeplots False" at the command-line.
+#
+# 2. The accuracy of your results will suffer if you use a small value for N (nsamples).
+#
+###########################################################
 
-    Victor Hanson-Smith
-    victorhansonsmith@gmail.com
-
-What is the probability of a cis-regulatory motif occurring by chance?
-"""
 from argparser import *
 from mpilibs import *
 import pickle
@@ -106,10 +141,13 @@ def plotcdf(pvals, nmuts):
 
 
 def cf2(mlib, urslen, nmuts, nsamples, nmut_stride):
+    """This method computes and returns sc, which is an array.
+    sc[sample number][number of mutations] = the cummulative count of the occurances
+        of a satisfactory motif in the URS up to this mutation."""
     rank = comm.Get_rank()
     
     jobs = []
-    sc = [] # key = motif, value = [] one for each sample, value = [] of cumm. count
+    sc = [] # key = motif, value = [], one for each sample, value = [] of cumm. count
     ms_locs = {} # key = motif, value = array of last-seen locations
 
     """Build data structures. . ."""
@@ -212,20 +250,21 @@ def post_cf2(sc, nmuts, nsamples, mliblen):
         print "plotting cdf"
         plotcdf(pvals, nmuts)
 
-""""""""""""""""""""""""""""""""""""""""""""""""""""""
-""" Main... """
-
+#################################################
+#
+# main starts here. . .
+#
 rank = comm.Get_rank()
 mpi_check()
 
-"""Read command-line arguments..."""
+# Read command-line arguments. . .
 ap = ArgParser(sys.argv)
 urslen = int( ap.getArg("--urslen") )
 nmuts = int( ap.getArg("--nmutations") )
 nsamples = int( ap.getArg("--nsamples") )
 stride = ap.getOptionalArg("--stride")
 if stride == False:
-    stride = 0
+    stride = 1
 else:
     stride = int(stride)
 mlibpath = ap.getArg("--mlibpath")
@@ -245,7 +284,7 @@ elif loadsaved == False:
     if rank == 0: 
         print "\n. OK, I'm using this motif library:"
         print mlib
-        print "\n. Calculating SC. . ."
+        print "\n. Calculating the CDF. . ."
         
     sc = cf2(mlib, urslen, nmuts, nsamples, stride)
     comm.Barrier()
