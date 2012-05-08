@@ -21,6 +21,7 @@ def read_pwm_from_file(f):
     return pwm
 
 def read_cutoffs_from_scertf(f):
+    """Reads the recommended cutoff file that you've pre-downloaded from the ScerTF database."""
     fin = open(f, "r")
     mcutoff = {}
     for l in fin.readlines():
@@ -37,6 +38,7 @@ def pwm_to_tree(pwm, cutoff):
     return pwm_to_tree_recur(pwm, cutoff, 0, 0.0, "")
 
 def pwm_to_tree_recur(pwm, cutoff, site, parent_cost, parent_string):
+    """Recursively builds a syntax tree from the PWM, with bit costs at each node."""
     if site == pwm.__len__() - 1:
         ret = {}
         mlibs = []
@@ -66,22 +68,17 @@ def pwm_to_tree_recur(pwm, cutoff, site, parent_cost, parent_string):
         return (ret, mlibs)
 
 def mlib_from_pwm(pwm, cutoff):
+    """Builds a syntax tree, and then finds all subtrees that satisfy the cutoff."""
     mlib = []
-    
     t = pwm_to_tree(pwm)
-    
     for mlen in range(1, pwm.__len__()):
-        #x = itertools.combinations_with_replacement(["A", "C", "G", "T"], mlen)
         x = itertools.product(["A", "C", "G", "T"], ["A", "C", "G", "T"], repeat = mlen)
         for i in x:
             """Turn i into string."""
-            #print i, i.__len__(), mlen # this explodes the computation time!
+            #print i, i.__len__(), mlen # this is useful for debugging, but it explodes the computation time!
             m = ""
             for l in i:
                 m += i[l]
-            #print m
-            if m == "AGATC":
-                print "AGATC!!!!!!!!!"
             """Count bits."""
             bits = 0.0
             for j in range(0, m.__len__()):
