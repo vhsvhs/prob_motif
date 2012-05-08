@@ -59,10 +59,10 @@ def plot_motif_space(tf_m):
             x = intersect(tf_m[ tfs[i] ], tf_m[ tfs[j] ]).__len__()
             if x > 0:
                 print tfs[i], tfs[j], x
-                G.add_edge(tfs[i], tfs[j], weight=1.0*x)
+                G.add_edge(tfs[i], tfs[j], weight=0.01*x)
             
     plt.figure(figsize=(8,8))
-    pos=nx.spring_layout(G,iterations=100)
+    pos=nx.spring_layout(G,iterations=50)
     nodesize=[]
     for v in G.node:
         nodesize.append(G.node[v]["size"])
