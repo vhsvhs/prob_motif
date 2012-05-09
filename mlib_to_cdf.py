@@ -42,7 +42,6 @@
 ###########################################################
 
 from argparser import *
-from mpilibs import *
 import pickle
 from pwm_tools import *
 import random
@@ -140,11 +139,11 @@ def plotcdf(pvals, nmuts):
     plt.show()
 
 
-def cf2(mlib, urslen, nmuts, nsamples, nmut_stride):
+def cf2(mlib, urslen, nmuts, nsamples, nmut_stride, rank):
     """This method computes and returns sc, which is an array.
     sc[sample number][number of mutations] = the cummulative count of the occurances
         of a satisfactory motif in the URS up to this mutation."""
-    rank = comm.Get_rank()
+    #rank = comm.Get_rank()
     
     jobs = []
     sc = [] # key = motif, value = [], one for each sample, value = [] of cumm. count
@@ -254,11 +253,19 @@ def post_cf2(sc, nmuts, nsamples, mliblen):
 #
 # main starts here. . .
 #
-rank = comm.Get_rank()
-mpi_check()
+
 
 # Read command-line arguments. . .
 ap = ArgParser(sys.argv)
+
+use_mpi = ap.getOptionalArg("--use_mpi")
+if use_mpi != False:
+    from mpilibs import *
+    rank = comm.Get_rank()
+    mpi_check()
+else:
+    rank = 0
+
 urslen = int( ap.getArg("--urslen") )
 nmuts = int( ap.getArg("--nmutations") )
 nsamples = int( ap.getArg("--nsamples") )
@@ -286,7 +293,7 @@ elif loadsaved == False:
         print mlib
         print "\n. Calculating the CDF. . ."
         
-    sc = cf2(mlib, urslen, nmuts, nsamples, stride)
+    sc = cf2(mlib, urslen, nmuts, nsamples, stride, rank)
     comm.Barrier()
     
     if rank == 0:
