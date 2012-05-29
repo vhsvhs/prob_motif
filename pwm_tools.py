@@ -6,19 +6,70 @@ DNA = ["A", "C", "G", "T"]
 def read_pwm_from_file(f):
     """Using the ScerTF file format."""
     pwm = {}
-    fin = open(f, "r")
-    for l in fin.readlines():
-        if l.__len__() > 1:
+    try:
+        fin = open(f, "r")
+        for l in fin.readlines():
+            if l.__len__() > 3:
+                tokens = l.split()
+                if tokens.__len__() <= 1:
+                    continue
+                if tokens[1] != "|":
+                    continue
+                state = tokens[0]
+                site = 0
+                for val in tokens[2:]:
+                    if site not in pwm.keys():
+                        pwm[site] = {}
+                    pwm[site][state] = float(val)
+                    site += 1
+        fin.close()
+        if pwm.keys().__len__() == 0:
+            return False
+        return pwm
+    except IOError:
+        return False
+
+def get_information_content( p ):
+    sum = 0.0
+    for site in p:
+        for state in p[site]:
+            if p[site][state] > 0.0:
+                sum += p[site][state]
+    return sum
+
+def get_mochipwms(path):
+    """Parse a MochiView-formatted list of PWMs."""
+    pwms = {}
+    fin = open(path, "r")
+    this_pwm = {}
+    this_name = None
+    count_site = 0
+    for l in fin.xreadlines():
+        if l.startswith("#"):
+            continue
+        if l.__contains__("NAME"):
             tokens = l.split()
-            state = tokens[0]
-            site = 0
-            for val in tokens[2:]:
-                if site not in pwm.keys():
-                    pwm[site] = {}
-                pwm[site][state] = float(val)
-                site += 1
+            #if tokens[0].__contains__("=[JP]"):
+            #    continue
+            if tokens[2].startswith("TYPE"):
+                this_name = tokens[1]
+            else:
+                this_name = tokens[1] + "." + tokens[2]
+                if pwms.keys().__contains__(this_name):
+                    print "I found a duplicate for", this_name
+            pwms[ this_name ] = {}
+            count_site = 0
+        elif this_name != None and l.split().__len__() == 4:
+            tokens = l.split()
+            states = ['A', 'C', 'G', 'T']
+            pwms[ this_name ][count_site] = {}
+            for i in range(0, 4):
+                #print tokens
+                #print this_name, count_site, states[i]
+                pwms[ this_name ][count_site][ states[i] ] = float( tokens[i] )
+            count_site += 1  
     fin.close()
-    return pwm
+    return pwms
 
 def read_cutoffs_from_scertf(f):
     """Reads the recommended cutoff file that you've pre-downloaded from the ScerTF database."""

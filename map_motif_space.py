@@ -24,7 +24,7 @@ def build_mlib_hash(genes_files):
         for l in lines:
             if l.__len__() > 2 and False == l.startswith("#"):
                 ret[gene].append( l.strip() )
-        print gene, ret[gene]
+        #print gene, ret[gene]
     return ret
                 
 
@@ -45,10 +45,29 @@ def plot_mlib_distribution(tf_m):
     plt.hist(mliblens, 20)
     plt.show()
 
+def print_mlib_stats( tf_m ):
+    # Build a reverse lookup hash
+    mlen_tf = {}
+    for tf in tf_m.keys():
+        mlen = tf_m[tf].__len__()
+        if mlen not in mlen_tf:
+            mlen_tf[mlen] = []
+        mlen_tf[mlen].append( tf )
+
+    mlen_sorted = mlen_tf.keys()
+    mlen_sorted.sort()
+    
+    print "\n. Motif Library Details:"
+    print "[N motifs]\t[tfs]"
+    for mlen in mlen_sorted:
+        print mlen, "\t", mlen_tf[mlen]
+
+
 def intersect(a, b):
      return list(set(a) & set(b))
-
+ 
 def plot_motif_space(tf_m):
+    print "\n. Plotting Motif Space..."
     G = nx.Graph()
     for tf in tf_m.keys():
         G.add_node(tf, size=1.0*tf_m[tf].__len__())
@@ -59,20 +78,20 @@ def plot_motif_space(tf_m):
             x = intersect(tf_m[ tfs[i] ], tf_m[ tfs[j] ]).__len__()
             if x > 0:
                 print tfs[i], tfs[j], x
-                G.add_edge(tfs[i], tfs[j], weight=0.01*x)
+                G.add_edge(tfs[i], tfs[j], weight=0.1*x)
             
     plt.figure(figsize=(8,8))
-    pos=nx.spring_layout(G,iterations=50)
+    pos=nx.spring_layout(G,iterations=20)
     nodesize=[]
     for v in G.node:
         nodesize.append(G.node[v]["size"])
     nx.draw_networkx_nodes(G, pos, node_size=nodesize, node_color="blue", alpha=0.5, linewidths=0.1)
 
     for e in G.edges():
-        print e
+        #print e
         edgewidth = [ G.get_edge_data(e[0],e[1])["weight"] ]
         this_edge = [ e ]
-        print this_edge, edgewidth
+        #print this_edge, edgewidth
         #print [(pos[e[0]],pos[e[1]]) for e in this_edge]
         nx.draw_networkx_edges(G, pos, edgelist = this_edge, width = edgewidth)
 
@@ -80,15 +99,15 @@ def plot_motif_space(tf_m):
     
     plt.show()
 
-
 #
 #
 # MAIN:
 #
 #
-mlib_dir = ap.getArg("--mlibdir")
-output_dir = ap.getArg("--outputdir")
-mlib_files = get_mlib_files(mlib_dir)
-tf_m = build_mlib_hash(mlib_files)
-#plot_mlib_distribution( tf_m )
-plot_motif_space( tf_m )
+mlib_dir = ap.getOptionalArg("--mlibdir")
+if mlib_dir != False:
+    mlib_files = get_mlib_files(mlib_dir)
+    tf_m = build_mlib_hash(mlib_files)
+    plot_mlib_distribution( tf_m )
+    print_mlib_stats( tf_m )
+    plot_motif_space( tf_m )
